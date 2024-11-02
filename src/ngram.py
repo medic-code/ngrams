@@ -77,8 +77,8 @@ def generate_sentence_prob(ngrams):
     print(sentence)
     return ' '.join(sentence)
 
-def compute_perplexity(tokens,test_set_size=5):
-    bigram_probs = list(generate_bigram_count(tokens).values())
+def compute_perplexity(tokens,test_set_size=5, smoothing=1e-6):
+    bigram_probs = [max(prob, smoothing) for prob in generate_bigram_count(tokens).values()]
     if test_set_size > len(bigram_probs):
         print("Warning: Test set size is larger than available bigram probabilities")
         test_set_size = len(bigram_probs)
