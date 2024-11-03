@@ -4,30 +4,47 @@ from typing import List, Tuple
 from collections import Counter
 import random
 import math
+import nltk
+nltk.download('punkt_tab')
+from nltk.tokenize import sent_tokenize, RegexpTokenizer
 
 def tokenize_sample(content: str) -> List[str]:
-    text = re.sub(r'[^\w\s</>]','',content.lower().strip()) 
-    return text.split()
+    sentences = sent_tokenize(content)
+    tagged_sentences = [f"<s> {sentence} </s>" for sentence in sentences]
+    tagged_text = " ".join(tagged_sentences)
+    tokenizer = RegexpTokenizer(r'<\/?s>|[\w\'\-]+|[.,!?;]')
+    all_words = tokenizer.tokenize(tagged_text) 
+    return all_words
+    
+content = "Hello! This is a test sentence. Here's another one? Yes, indeed."
+tokens = tokenize_sample(content)
+print(tokens)
 
-def set_random_seed(seed):
-    random.seed(seed)
+def split_data(tokens):
+    index_split = int(0.8*len(tokens))
+    training_data = tokens[:index_split]
+    test_data = tokens[index_split:]
+
+    return training_data,test_data
 
 def main():
     parser = argparse.ArgumentParser(description='This is a n-grams model command line')
-    parser.add_argument('filename', type=str, help='Filename of training corpus')
-    parser.add_argument('--s', action='store_true', help='Provides a 50 word sample of the text supplied')
-    set_random_seed(42)
+    parser.add_argument('filename', type=str, help='Path to the text file to be processed')
+    parser.add_argument('--s', action='store_true', help='Displays the first 50 word sample of the text supplied')
+
     args = parser.parse_args()
     try: 
         with open(args.filename, 'r') as file:
             content = file.read()
             tokens = tokenize_sample(content)
-            bigram_count = generate_bigram_count(tokens)
+       
+            train_data, test_data = split_data(tokens)
+            bigram_count = generate_bigram_count(train_data)
             print(generate_sentence_prob(bigram_count))
-            print(compute_perplexity(tokens,5))
+            print(compute_perplexity(test_data,5))
         
     except FileNotFoundError:
-        print(f"Error: File'{args.filename} not found")
+        print(f"Error: File'{args.filename} not found, Please check file path")
         return
     if (args.s):
         print(content[:49])
@@ -45,20 +62,20 @@ def generate_unigram_count(tokens):
 
 def generate_bigram_count(tokens):
     bigrams = generate_ngrams(tokens,2)
-    counts = Counter(tokens)
+    unigram_counts = Counter(tokens)
     bigram_count = Counter(bigrams)
-  
-    for item in bigram_count:
-        bigram_count[item] = bigram_count[item] / counts[item[0]]
+    bigram_probs = {}
+    for bigram in bigram_count:
+        bigram_probs[bigram] = bigram_count[bigram] / unigram_counts[bigram[0]]
    
-    return bigram_count
+    return bigram_probs
 
 def return_random_top_probability(ngrams):
     top_five = ngrams.most_common(5) 
     return random.choice(top_five)
 
 def generate_sentence_prob(ngrams):
-    sentence_limit = random.randint(5, 10)
+    sentence_limit = random.randint(5,30)
     word_count = 0
     sentence = []
     current_word = random.choice(list(ngrams.keys()))[0]
@@ -67,12 +84,15 @@ def generate_sentence_prob(ngrams):
         possible_bigrams = {k:v for k,v in ngrams.items() if k[0] == current_word}
 
         if not possible_bigrams:
-            current_word = random.choice(list(possible_bigrams.keys()))[0]
             break
 
         next_bigram = return_random_top_probability(Counter(possible_bigrams))
         current_word = next_bigram[0][1] if next_bigram else None
-        sentence.append(current_word)
+
+        if current_word: 
+            sentence.append(current_word)
+        else:
+            break
         word_count += 1
     print(sentence)
     return ' '.join(sentence)
