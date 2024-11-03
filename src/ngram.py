@@ -1,12 +1,15 @@
 import argparse 
-import re
 from typing import List, Tuple
 from collections import Counter
 import random
 import math
+
 import nltk
-nltk.download('punkt_tab')
 from nltk.tokenize import sent_tokenize, RegexpTokenizer
+
+
+nltk.download('punkt_tab')
+
 
 def tokenize_sample(content: str) -> List[str]:
     sentences = sent_tokenize(content)
@@ -20,30 +23,8 @@ def split_data(tokens):
     index_split = int(0.8*len(tokens))
     training_data = tokens[:index_split]
     test_data = tokens[index_split:]
-
     return training_data,test_data
 
-def main():
-    parser = argparse.ArgumentParser(description='This is a n-grams model command line')
-    parser.add_argument('filename', type=str, help='Path to the text file to be processed')
-    parser.add_argument('--s', action='store_true', help='Displays the first 50 word sample of the text supplied')
-
-    args = parser.parse_args()
-    try: 
-        with open(args.filename, 'r') as file:
-            content = file.read()
-            tokens = tokenize_sample(content)
-       
-            train_data, test_data = split_data(tokens)
-            bigram_count = generate_bigram_count(train_data)
-            print(generate_sentence_prob(bigram_count))
-            print(compute_perplexity(test_data,5))
-        
-    except FileNotFoundError:
-        print(f"Error: File'{args.filename} not found, Please check file path")
-        return
-    if (args.s):
-        print(content[:49])
 
 def generate_ngrams(tokens:List[str],n:int) -> List[Tuple[str,...]]:
     ngram = [tuple(tokens[i:i+n]) for i in range(len(tokens) - n + 1)]
@@ -71,12 +52,17 @@ def return_random_top_probability(ngrams):
     return random.choice(top_five)
 
 def generate_sentence_prob(ngrams):
-    sentence_limit = random.randint(5,30)
+    sentence_limit = random.randint(5,15)
     word_count = 0
     sentence = []
     current_word = random.choice(list(ngrams.keys()))[0]
   
-    while (word_count < sentence_limit):
+    while (word_count < sentence_limit and current_word != '</s>'):
+
+        if current_word != '<s>':
+            sentence.append(current_word)
+            word_count += 1
+
         possible_bigrams = {k:v for k,v in ngrams.items() if k[0] == current_word}
 
         if not possible_bigrams:
@@ -85,15 +71,13 @@ def generate_sentence_prob(ngrams):
         next_bigram = return_random_top_probability(Counter(possible_bigrams))
         current_word = next_bigram[0][1] if next_bigram else None
 
-        if current_word: 
-            sentence.append(current_word)
-        else:
-            break
-        word_count += 1
+        if current_word is None:
+            break 
+            
     print(sentence)
     return ' '.join(sentence)
 
-def compute_perplexity(tokens,test_set_size=5, smoothing=1e-6):
+def compute_perplexity(tokens,test_set_size = 5, smoothing = 1e-6):
     bigram_probs = [max(prob, smoothing) for prob in generate_bigram_count(tokens).values()]
     if test_set_size > len(bigram_probs):
         print("Warning: Test set size is larger than available bigram probabilities")
@@ -101,6 +85,31 @@ def compute_perplexity(tokens,test_set_size=5, smoothing=1e-6):
     test_set = random.sample(bigram_probs,test_set_size)
     log_sum = sum(math.log(prob) for prob in test_set if prob > 0)
     return math.exp(-log_sum / test_set_size)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='This is a n-grams model command line'
+    )
+    parser.add_argument('filename', type=str, help='Path to the text file to be processed')
+    parser.add_argument('--s', action='store_true', help='Displays the first 50 word sample of the text supplied')
+
+    args = parser.parse_args()
+    try: 
+        with open(args.filename, 'r') as file:
+            content = file.read()
+            tokens = tokenize_sample(content)
+       
+            train_data, test_data = split_data(tokens)
+            bigram_count = generate_bigram_count(train_data)
+            print(generate_sentence_prob(bigram_count))
+            print(compute_perplexity(test_data,5))
+        
+    except FileNotFoundError:
+        print(f"Error: File'{args.filename} not found, Please check file path")
+        return
+    if (args.s):
+        print(content[:49])
     
 if __name__ == "__main__":
     main()
