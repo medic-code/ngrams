@@ -16,10 +16,6 @@ def tokenize_sample(content: str) -> List[str]:
     all_words = tokenizer.tokenize(tagged_text) 
     return all_words
     
-content = "Hello! This is a test sentence. Here's another one? Yes, indeed."
-tokens = tokenize_sample(content)
-print(tokens)
-
 def split_data(tokens):
     index_split = int(0.8*len(tokens))
     training_data = tokens[:index_split]
